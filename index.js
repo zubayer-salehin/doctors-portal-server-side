@@ -3,9 +3,8 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-var nodemailer = require('nodemailer');
-var sgTransport = require('nodemailer-sendgrid-transport');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const nodemailer = require('nodemailer');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -14,7 +13,7 @@ app.use(cors());
 app.use(express.json());
 
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.twtll.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.z3bgx.mongodb.net/?retryWrites=true&w=majority`;
 
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
@@ -33,77 +32,30 @@ function verifyJWT(req, res, next) {
   });
 }
 
-const emailSenderOptions = {
-  auth: {
-    api_key: process.env.EMAIL_SENDER_KEY
+function sendEmail(userEmail) {
+
+  let transporter = nodemailer.createTransport({
+    service:"gmail",
+    auth:{
+      user:process.env.AUTH_USER,
+      pass:process.env.AUTH_PASS
+    }
+  })
+
+  let mailOptions = {
+    from:process.env.AUTH_USER,
+    to:userEmail,
+    subject:"Testing and testing",
+    text:"It Works"
   }
-}
 
-const emailClient = nodemailer.createTransport(sgTransport(emailSenderOptions));
-
-function sendAppointmentEmail(booking) {
-  const { patient, patientName, treatment, date, slot } = booking;
-
-  var email = {
-    from: process.env.EMAIL_SENDER,
-    to: patient,
-    subject: `Your Appointment for ${treatment} is on ${date} at ${slot} is Confirmed`,
-    text: `Your Appointment for ${treatment} is on ${date} at ${slot} is Confirmed`,
-    html: `
-      <div>
-        <p> Hello ${patientName}, </p>
-        <h3>Your Appointment for ${treatment} is confirmed</h3>
-        <p>Looking forward to seeing you on ${date} at ${slot}.</p>
-        
-        <h3>Our Address</h3>
-        <p>Andor Killa Bandorban</p>
-        <p>Bangladesh</p>
-        <a href="https://web.programming-hero.com/">unsubscribe</a>
-      </div>
-    `
-  };
-
-  emailClient.sendMail(email, function (err, info) {
-    if (err) {
-      console.log(err);
-    }
-    else {
-      console.log('Message sent: ', info);
-    }
-  });
-
-}
-function sendPaymentConfirmationEmail(booking) {
-  const { patient, patientName, treatment, date, slot } = booking;
-
-  var email = {
-    from: process.env.EMAIL_SENDER,
-    to: patient,
-    subject: `We have received your payment for ${treatment} is on ${date} at ${slot} is Confirmed`,
-    text: `Your payment for this Appointment ${treatment} is on ${date} at ${slot} is Confirmed`,
-    html: `
-      <div>
-        <p> Hello ${patientName}, </p>
-        <h3>Thank you for your payment . </h3>
-        <h3>We have received your payment</h3>
-        <p>Looking forward to seeing you on ${date} at ${slot}.</p>
-        <h3>Our Address</h3>
-        <p>Andor Killa Bandorban</p>
-        <p>Bangladesh</p>
-        <a href="https://web.programming-hero.com/">unsubscribe</a>
-      </div>
-    `
-  };
-
-  emailClient.sendMail(email, function (err, info) {
-    if (err) {
-      console.log(err);
-    }
-    else {
-      console.log('Message sent: ', info);
-    }
-  });
-
+  transporter.sendMail(mailOptions,function(err,data){
+      if (err) {
+        console.log("Email Occure");
+      }else{
+        console.log("Email Sent");
+      }
+  })
 }
 
 
@@ -220,10 +172,10 @@ async function run() {
     */
 
     app.get('/booking', verifyJWT, async (req, res) => {
-      const patient = req.query.patient;
+      const patient = req.query.patientEmail;
       const decodedEmail = req.decoded.email;
       if (patient === decodedEmail) {
-        const query = { patient: patient };
+        const query = { patientEmail: patient };
         const bookings = await bookingCollection.find(query).toArray();
         return res.send(bookings);
       }
@@ -242,14 +194,14 @@ async function run() {
 
     app.post('/booking', async (req, res) => {
       const booking = req.body;
-      const query = { treatment: booking.treatment, date: booking.date, patient: booking.patient }
+      const query = { treatment: booking.treatment, date: booking.date, patientEmail: booking.patientEmail }
       const exists = await bookingCollection.findOne(query);
       if (exists) {
         return res.send({ success: false, booking: exists })
       }
       const result = await bookingCollection.insertOne(booking);
       console.log('sending email');
-      sendAppointmentEmail(booking);
+      sendEmail(booking.patientEmail);
       return res.send({ success: true, result });
     });
 
