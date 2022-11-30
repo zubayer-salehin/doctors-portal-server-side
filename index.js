@@ -35,26 +35,26 @@ function verifyJWT(req, res, next) {
 function sendEmail(userEmail) {
 
   let transporter = nodemailer.createTransport({
-    service:"gmail",
-    auth:{
-      user:process.env.AUTH_USER,
-      pass:process.env.AUTH_PASS
+    service: "gmail",
+    auth: {
+      user: process.env.AUTH_USER,
+      pass: process.env.AUTH_PASS
     }
   })
 
   let mailOptions = {
-    from:process.env.AUTH_USER,
-    to:userEmail,
-    subject:"Testing and testing",
-    text:"It Works"
+    from: process.env.AUTH_USER,
+    to: userEmail,
+    subject: "Appiontment Confirm",
+    text: "Your Appiontment is Monday"
   }
 
-  transporter.sendMail(mailOptions,function(err,data){
-      if (err) {
-        console.log("Email Occure");
-      }else{
-        console.log("Email Sent");
-      }
+  transporter.sendMail(mailOptions, function (err, data) {
+    if (err) {
+      console.log("Email Occure");
+    } else {
+      console.log("Email Sent");
+    }
   })
 }
 
@@ -79,16 +79,16 @@ async function run() {
       }
     }
 
-    app.post('/create-payment-intent', verifyJWT, async(req, res) =>{
+    app.post('/create-payment-intent', verifyJWT, async (req, res) => {
       const service = req.body;
       const price = service.price;
-      const amount = price*100;
+      const amount = price * 100;
       const paymentIntent = await stripe.paymentIntents.create({
-        amount : amount,
+        amount: amount,
         currency: 'usd',
-        payment_method_types:['card']
+        payment_method_types: ['card']
       });
-      res.send({clientSecret: paymentIntent.client_secret})
+      res.send({ clientSecret: paymentIntent.client_secret })
     });
 
     app.get('/service', async (req, res) => {
@@ -129,9 +129,21 @@ async function run() {
         $set: user,
       };
       const result = await userCollection.updateOne(filter, updateDoc, options);
-      const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
+      const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '7d' })
       res.send({ result, token });
     });
+
+    app.put("/userUpdate", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+      const updateUser = req.body;
+      const filter = { email: email };
+      const options = { upsert: true }
+      const updateDoc = {
+        $set: updateUser,
+      }
+      const result = await userCollection.updateOne(filter, updateDoc, options)
+      res.send({ success: true, result })
+    })
 
     // Warning: This is not the proper way to query multiple collection. 
     // After learning more about mongodb. use aggregate, lookup, pipeline, match, group
@@ -184,9 +196,9 @@ async function run() {
       }
     });
 
-    app.get('/booking/:id', verifyJWT, async(req, res) =>{
+    app.get('/booking/:id', verifyJWT, async (req, res) => {
       const id = req.params.id;
-      const query = {_id: ObjectId(id)};
+      const query = { _id: ObjectId(id) };
       const booking = await bookingCollection.findOne(query);
       res.send(booking);
     })
@@ -205,10 +217,10 @@ async function run() {
       return res.send({ success: true, result });
     });
 
-    app.patch('/booking/:id', verifyJWT, async(req, res) =>{
-      const id  = req.params.id;
+    app.patch('/booking/:id', verifyJWT, async (req, res) => {
+      const id = req.params.id;
       const payment = req.body;
-      const filter = {_id: ObjectId(id)};
+      const filter = { _id: ObjectId(id) };
       const updatedDoc = {
         $set: {
           paid: true,
